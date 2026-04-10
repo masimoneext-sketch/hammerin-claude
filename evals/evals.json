@@ -1,0 +1,23 @@
+{
+  "skill_name": "multi-agent-orchestrator",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "Aggiungi un campo `note` alla tabella `turni` in sudo-support-it e mostralo nella UI della sezione Turni",
+      "expected_output": "Sizing S — lavora inline senza sub-agenti, modifica database.js e app.js, campo note visibile nella UI turni",
+      "files": []
+    },
+    {
+      "id": 1,
+      "prompt": "In spot-tracker aggiungi una sezione Manutenzione: endpoint CRUD per registrare interventi di manutenzione sui laptop, tab nel frontend con tabella, form di creazione, e filtro per laptop",
+      "expected_output": "Sizing M — Opus pianifica, 2 agenti Sonnet (backend + frontend), 1-2 wave, endpoint funzionanti e tab visibile",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "In sudo-support-it aggiungi una sezione Inventario completa: tabella DB per oggetti inventario con categorie, CRUD API con middleware auth, import da CSV, tab frontend con griglia, ricerca, filtri per categoria, modal dettaglio, e export CSV",
+      "expected_output": "Sizing L — Opus pianifica, 3-4 agenti Sonnet in 2+ wave (DB+API prima, frontend+import dopo), contratti definiti, verifica post-integrazione",
+      "files": []
+    }
+  ]
+}
