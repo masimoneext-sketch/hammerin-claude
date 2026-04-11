@@ -21,6 +21,99 @@ Il principio fondamentale: **Opus ragiona, Sonnet scrive**. Mai invertire.
 
 ---
 
+## Fase 0 — Ripresa Cantiere (checkpoint cross-sessione)
+
+Prima di qualsiasi sopralluogo, controlla se esiste un cantiere interrotto.
+
+### All'avvio di ogni task, SEMPRE:
+
+1. Cerca il file `.hammerin-checkpoint.json` nella **root del progetto** su cui stai lavorando
+2. Se **non esiste** → procedi normalmente con Fase 1
+3. Se **esiste** → leggi il checkpoint e riprendi da dove ti eri fermato
+
+### Logica di ripresa
+
+Quando trovi un checkpoint:
+
+1. **Leggi il file** `.hammerin-checkpoint.json`
+2. **Verifica che il task corrisponda** — il campo `task_description` deve essere coerente con cio' che l'utente sta chiedendo ora. Se l'utente chiede un task diverso, ignora il checkpoint e parti da zero (ma non cancellarlo — chiedi all'utente se vuole abbandonare il cantiere precedente).
+3. **Verifica i file completati** — fai un check rapido che i file elencati in `files_modified` esistano e contengano le modifiche attese (leggi le prime righe, non tutto). Questo conferma che il lavoro precedente non e' stato annullato.
+4. **Riprendi dallo strato successivo** — se l'ultimo strato completato e' il 2, parti dallo strato 3. Non rileggere i file degli strati completati se non serve.
+5. **Comunica all'utente**:
+
+> **Cantiere interrotto trovato** — task: "{task_description}", ultimo strato completato: {current_layer} ({layer_name}). File verificati OK. Riprendo dallo strato {next_layer}.
+
+> **Cantiere interrotto trovato** — task: "{task_description}", ma i file risultano modificati/assenti. Riparto dal sopralluogo.
+
+### Formato del file checkpoint
+
+Il file `.hammerin-checkpoint.json` ha questa struttura:
+
+```json
+{
+  "version": 1,
+  "project_path": "/path/to/project/",
+  "task_description": "Descrizione breve del task richiesto dall'utente",
+  "started_at": "2026-04-11T10:30:00Z",
+  "updated_at": "2026-04-11T11:15:00Z",
+  "mode": "inline|squadra",
+  "current_layer": 2,
+  "layers": {
+    "1": {
+      "name": "FONDAMENTA",
+      "status": "completato",
+      "files_modified": ["src/database.js"],
+      "contracts_summary": "tabella turni creata con colonne: id, name, date, shift_type, user_id",
+      "verification": "OK — tabella creata, query funzionano"
+    },
+    "2": {
+      "name": "STRUTTURA PORTANTE",
+      "status": "completato",
+      "files_modified": ["src/routes/turni.js"],
+      "contracts_summary": "GET/POST/PUT/DELETE /api/turni — shape: {id, name, date, shift_type}",
+      "verification": "OK — curl 200 su tutti gli endpoint"
+    },
+    "3": {
+      "name": "MURA E IMPIANTI",
+      "status": "da_fare",
+      "files_to_modify": ["public/js/app.js", "public/index.html"],
+      "contracts_summary": "",
+      "verification": null
+    }
+  },
+  "plan_summary": "Breve sintesi del piano — strati previsti, modalita', decisioni chiave",
+  "decisions": [
+    "Inline dopo sopralluogo — ~80 righe, 2 domini",
+    "Confermato inline dopo strato 2 — volume come previsto"
+  ],
+  "next_action": "Costruire strato 3 — frontend turni in public/js/app.js"
+}
+```
+
+### Cosa salvare nel checkpoint (e cosa no)
+
+**Salva:**
+- Stato di avanzamento (strato corrente, status per strato)
+- File modificati per strato (per verifica rapida alla ripresa)
+- Sintesi contratti (non il codice completo — solo nomi endpoint, tabelle, shape)
+- Piano sintetico e decisioni prese
+- Prossima azione da eseguire
+
+**NON salvare:**
+- Contenuto dei file (e' gia' su disco)
+- Output completo delle verifiche (solo OK/FAIL)
+- Contesto conversazione (non e' riproducibile)
+
+### Regole checkpoint
+
+- **Scrivi il checkpoint dopo ogni strato completato con verifica OK** — non prima
+- **Aggiorna `updated_at` ad ogni scrittura** per tracciare la freschezza
+- **Il checkpoint e' del progetto, non della sessione** — salvalo nella root del progetto, non in /tmp
+- **Un solo checkpoint per progetto alla volta** — se ne esiste uno vecchio, sovrascrivilo solo se lo stai aggiornando per lo stesso task
+- **Aggiungi `.hammerin-checkpoint.json` al `.gitignore` del progetto** se non e' gia' presente
+
+---
+
 ## Fase 1 — Sopralluogo del Terreno
 
 Prima di posare qualsiasi cosa, studia il terreno. Questa fase e' SEMPRE inline, mai delegata.
@@ -188,17 +281,28 @@ Ma strato 3 non parte finche' strato 2 non e' verificato.
 Procedi strato per strato dall'alto in basso:
 
 1. **Fondamenta** — Schema DB, migration. Verifica: tabella creata, query OK.
+   **→ SALVA CHECKPOINT** (strato 1 completato, contratti esposti, file modificati)
 2. **Struttura** — Route, controller, logic. Verifica: curl endpoint.
-   **→ CHECKPOINT: rivaluta.** Quanto lavoro resta? Se gli strati restanti sono piu' grossi
+   **→ SALVA CHECKPOINT** (strato 2 completato)
+   **→ CHECKPOINT DECISIONALE: rivaluta.** Quanto lavoro resta? Se gli strati restanti sono piu' grossi
    del previsto, questo e' il momento di chiamare la squadra. Le fondamenta e la struttura
    sono gia' pronte — lancia Opus per progettare solo gli strati superiori, poi agenti Sonnet.
 3. **Mura** — Frontend HTML/JS. Verifica: UI si carica.
+   **→ SALVA CHECKPOINT** (strato 3 completato)
 4. **Impianti** — Auth, logging, validazione. Verifica: permessi funzionano.
+   **→ SALVA CHECKPOINT** (strato 4 completato)
 5. **Finiture** — Empty states, loading, feedback. Verifica: UX completa.
+   (nessun checkpoint — si passa direttamente al collaudo e alla consegna)
 
 Ad ogni strato, **verifica prima di salire**. Se le fondamenta sono rotte, non costruire sopra.
 
-Se scali alla squadra dal checkpoint, comunica all'utente:
+**Procedura salvataggio checkpoint dopo ogni strato:**
+1. Aggiorna il file `.hammerin-checkpoint.json` nella root del progetto
+2. Imposta lo strato appena completato come `"status": "completato"` con `verification` e `files_modified`
+3. Aggiorna `current_layer`, `updated_at`, `next_action`
+4. Se il prossimo strato ha file gia' noti, compilali in `files_to_modify`
+
+Se scali alla squadra dal checkpoint decisionale, comunica all'utente:
 > **Escalation** — fondamenta e struttura completate inline. Il volume restante e' ~200 righe
 > su 3 domini indipendenti. Chiamo la squadra per mura + impianti + finiture.
 
@@ -218,7 +322,8 @@ Tutti gli agenti dello stesso strato partono **nello stesso messaggio** con `run
 **Tra uno strato e l'altro:**
 1. Verifica che i contratti esposti siano rispettati
 2. Se un agente ha deviato, correggi prima di salire
-3. Passa allo strato successivo con i contratti aggiornati dal codice reale
+3. **SALVA CHECKPOINT** — aggiorna `.hammerin-checkpoint.json` con strato completato, file modificati, contratti reali
+4. Passa allo strato successivo con i contratti aggiornati dal codice reale
 
 Questo e' il vantaggio della costruzione a strati: ogni piano si appoggia su fondamenta verificate.
 
@@ -262,15 +367,45 @@ Esegui la verifica appropriata al progetto:
 
 ## Fase 5 — Consegna
 
+### Pulizia checkpoint
+
+Il palazzo e' completato e collaudato — rimuovi il cantiere:
+1. **Elimina** il file `.hammerin-checkpoint.json` dalla root del progetto
+2. Se avevi aggiunto `.hammerin-checkpoint.json` al `.gitignore`, lascialo — non da fastidio e previene commit accidentali futuri
+
+### Rapporto di consegna
+
 Comunica all'utente cosa hai costruito:
 - Quali strati sono stati completati
 - Quanti agenti sono stati usati (se squadra) o che hai lavorato inline
+- Se il lavoro e' stato ripreso da un checkpoint precedente, menzionalo
 - Eventuali scelte fatte durante la costruzione
 - Come verificare di persona (URL, comando, sezione da aprire)
 
 ---
 
 ## Recovery
+
+### Sessione interrotta (rate limit, context esaurito, crash)
+
+Questo e' lo scenario piu' comune e il motivo per cui esistono i checkpoint.
+
+1. **Non succede nulla di grave** — il checkpoint su disco ha tutto lo stato necessario
+2. Nella prossima sessione, la Fase 0 rileva il checkpoint e riprende automaticamente
+3. L'utente non deve ricordarsi a che punto era — il checkpoint lo sa
+
+**Cosa si recupera dal checkpoint:**
+- Strato corrente e stato di ogni strato precedente
+- File modificati (per verifica rapida che il lavoro sia integro)
+- Piano sintetico e contratti (per non dover riprogettare)
+- Prossima azione da eseguire
+
+**Cosa si perde (inevitabilmente):**
+- Contesto conversazione (file letti in cache, discussione con l'utente)
+- Output dettagliato delle verifiche precedenti
+
+**Costo della ripresa:** ~1 lettura del checkpoint + verifica rapida dei file completati.
+Molto meno del sopralluogo completo da zero.
 
 ### Agente fallito
 
@@ -333,6 +468,9 @@ I sub-agenti sono un'ottimizzazione di velocita', non un requisito.
 - **File non sovrapposti** — mai assegnare lo stesso file a due agenti nello stesso strato
 - **Contratti da Opus** — nomi funzioni, endpoint, tipi li decide l'architetto
 - **Verificare prima di salire** — non costruire strato 2 senza aver collaudato strato 1
+- **Salvare checkpoint dopo ogni strato verificato** — il lavoro sopravvive alle interruzioni
+- **Controllare checkpoint all'avvio** — Fase 0 prima di Fase 1, sempre
+- **Pulire checkpoint alla consegna** — cantiere finito = checkpoint eliminato
 - **Niente generico** — nomi esatti, non "crea una funzione appropriata"
 - **Decisione economica** — se il costo degli agenti supera il costo del lavoro, fai inline
 - **Stack-agnostico** — funziona con qualsiasi stack: React, Node.js, Laravel, React Native, Python
