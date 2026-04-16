@@ -1,141 +1,177 @@
 {
   "skill_name": "hammerin-claude",
+  "benchmark_version": "3.0-lean",
+  "description": "Benchmark skill v3 ottimizzata (245 righe) vs baseline",
   "evals": [
     {
       "id": 0,
+      "name": "sizing-s-campo-note",
       "prompt": "Aggiungi un campo `note` alla tabella `turni` in sudo-support-it e mostralo nella UI della sezione Turni. Il progetto è in /home/webportal/www/sudo-support-it/, stack Node.js + Express + SQLite, entrypoint server.js.",
-      "expected_output": "Sizing S — lavora inline, modifica database.js e app.js. DEVE produrre: Riquadro A (intestazione fase), Riquadro E (decisione sopralluogo), Riquadro D (verifica), Riquadro F (consegna finale) con lista file modificati.",
+      "expected_output": "Sizing S — inline, preventivi, formato compatto, report consegna completo.",
+      "sizing": "S",
       "files": [],
       "assertions": [
         {
-          "id": "panel-a-phase-header",
-          "description": "Output contiene almeno 1 Riquadro A (intestazione fase) con caratteri ╔═╗║╚═╝",
-          "type": "output_contains",
-          "check": "L'output deve contenere almeno un blocco con i caratteri Unicode ╔ ═ ╗ ║ ╚ ═ ╝ che forma un riquadro di intestazione fase"
-        },
-        {
-          "id": "panel-e-decision",
-          "description": "Output contiene Riquadro E (decisione sopralluogo) con caratteri ┊─┊",
-          "type": "output_contains",
-          "check": "L'output deve contenere almeno un blocco con i caratteri ┊ e ─ che forma un riquadro decisione/riepilogo"
-        },
-        {
-          "id": "panel-d-verification",
-          "description": "Output contiene Riquadro D (verifica strato) con risultato PASS/FAIL",
-          "type": "output_contains",
-          "check": "L'output deve contenere un riquadro di verifica con ╔══ VERIFICA e un risultato PASS o FAIL"
-        },
-        {
-          "id": "panel-f-delivery",
-          "description": "Output contiene Riquadro F (consegna finale) con lista file e righe",
-          "type": "output_contains",
-          "check": "L'output deve contenere un riquadro consegna finale con ╔═ CONSEGNA e una lista di file modificati con conteggio righe"
-        },
-        {
-          "id": "task-tracking",
-          "description": "Vengono creati TaskCreate per le fasi previste",
+          "id": "correct-sizing-inline",
+          "description": "Sizing S: lavora inline senza sub-agenti",
           "type": "behavior",
-          "check": "Il modello deve creare almeno 2 TaskCreate e aggiornarli con TaskUpdate durante l'esecuzione"
+          "check": "Il modello sceglie inline, NON lancia Agent() Sonnet."
         },
         {
-          "id": "no-silent-gaps",
-          "description": "Nessun gap di silenzio — output testuale tra ogni operazione",
-          "type": "behavior",
-          "check": "Tra ogni tool call e la successiva, deve esserci output testuale visibile all'utente"
+          "id": "banner-compact",
+          "description": "Banner di fase compatti (━━━ + 1-2 righe)",
+          "type": "output_contains",
+          "check": "I banner usano formato '━━━ FASE/STRATO N NOME ━━━' su 1-2 righe. No box art multi-riga."
+        },
+        {
+          "id": "verification-compact",
+          "description": "Verifiche con [OK] compatto",
+          "type": "output_contains",
+          "check": "Le verifiche usano '[OK] Strato N — dettaglio' su 1-2 righe."
+        },
+        {
+          "id": "contracts-verbatim",
+          "description": "Contratti non compressi",
+          "type": "output_contains",
+          "check": "Endpoint esatti (GET/POST/PUT /api/...), colonne DB, comandi curl completi."
+        },
+        {
+          "id": "preventivi-before-work",
+          "description": "Preventivi presentati prima di toccare file",
+          "type": "output_contains",
+          "check": "Tabella con almeno 2 preventivi (token, €) prima di qualsiasi modifica."
+        },
+        {
+          "id": "delivery-report",
+          "description": "Report consegna completo",
+          "type": "output_contains",
+          "check": "CONSEGNA con file+righe, budget previsto vs consumato, come verificare."
         }
       ]
     },
     {
       "id": 1,
+      "name": "sizing-m-manutenzione",
       "prompt": "In spot-tracker aggiungi una sezione Manutenzione: endpoint CRUD per registrare interventi di manutenzione sui laptop, tab nel frontend con tabella, form di creazione, e filtro per laptop. Il progetto è in /home/webportal/www/spot-tracker/, stack Node.js + Express + SQLite, entrypoint server.js.",
-      "expected_output": "Sizing M — Opus pianifica, 2 agenti Sonnet. DEVE produrre: Riquadro A per ogni fase/strato, Riquadro B per ogni agente lanciato, Riquadro C per ogni agente completato, Riquadro D per verifiche, Riquadro E per decisioni, Riquadro F per consegna.",
+      "expected_output": "Sizing M — preventivi, almeno 1 agente Sonnet, formato → e ← per agenti.",
+      "sizing": "M",
       "files": [],
       "assertions": [
         {
-          "id": "panel-a-per-layer",
-          "description": "Riquadro A presente per ogni strato di costruzione (almeno 2 strati)",
-          "type": "output_contains",
-          "check": "L'output deve contenere almeno 2 riquadri ╔═ distinti che indicano strati diversi (es. FONDAMENTA, STRUTTURA, MURA)"
+          "id": "sizing-m-agents",
+          "description": "Sizing M o superiore: usa almeno 1 sub-agente",
+          "type": "behavior",
+          "check": "Il modello lancia almeno 1 Agent() con model sonnet."
         },
         {
-          "id": "panel-b-agent-launch",
-          "description": "Riquadro B (lancio agente) presente con dettagli file e contratto",
+          "id": "agent-launch-arrow",
+          "description": "Lancio agenti con formato → compatto",
           "type": "output_contains",
-          "check": "L'output deve contenere almeno 1 riquadro ┌─ LANCIO AGENTE o ┌─ AGENTE con Nome, File assegnati, e Contratto"
+          "check": "Formato '→ Sonnet \"nome\": file [background]' per lancio agenti."
         },
         {
-          "id": "panel-c-agent-result",
-          "description": "Riquadro C (risultato agente) presente con file modificati e stato",
+          "id": "agent-result-arrow",
+          "description": "Risultati agenti con formato ← compatto",
           "type": "output_contains",
-          "check": "L'output deve contenere almeno 1 riquadro ╭─ AGENTE COMPLETATO con lista file modificati e conteggio righe"
+          "check": "Formato '← \"nome\" OK: file +N righe' per risultati."
         },
         {
-          "id": "panel-d-verification",
-          "description": "Riquadro D (verifica) presente dopo ogni strato con PASS/FAIL",
+          "id": "preventivi-budget",
+          "description": "Preventivi con costi euro",
           "type": "output_contains",
-          "check": "L'output deve contenere almeno 1 riquadro ╔══ VERIFICA con risultato PASS o FAIL"
+          "check": "Tabella preventivi con almeno 2 opzioni e costi in euro."
         },
         {
-          "id": "panel-e-summary",
-          "description": "Riquadro E (riepilogo) presente tra strati con conteggio file/righe",
+          "id": "verification-between-layers",
+          "description": "Verifica tra strati",
           "type": "output_contains",
-          "check": "L'output deve contenere almeno 1 riquadro ┊─ RIEPILOGO con file modificati e righe aggiunte"
+          "check": "Almeno 1 '[OK] Strato N' tra strati di costruzione."
         },
         {
-          "id": "panel-f-delivery",
-          "description": "Riquadro F (consegna) con report completo finale",
+          "id": "delivery-complete",
+          "description": "Report consegna con budget comparison",
           "type": "output_contains",
-          "check": "L'output deve contenere il riquadro ╔═ CONSEGNA COMPLETATA con strati completati, agenti utilizzati, e lista file"
-        },
-        {
-          "id": "all-6-panel-types",
-          "description": "Tutti e 6 i tipi di riquadro (A-F) appaiono almeno una volta",
-          "type": "output_contains",
-          "check": "Nell'output devono apparire tutti i 6 stili: ╔═╗ (A/D), ┌─┐ (B), ╭─╮ (C), ┊─┊ (E), ╔═╣╠═ (F)"
+          "check": "CONSEGNA con strati, agenti usati, file+righe, budget previsto vs consumato."
         }
       ]
     },
     {
       "id": 2,
+      "name": "sizing-l-inventario",
       "prompt": "In sudo-support-it aggiungi una sezione Inventario completa: tabella DB per oggetti inventario con categorie, CRUD API con middleware auth, import da CSV, tab frontend con griglia, ricerca, filtri per categoria, modal dettaglio, e export CSV. Progetto in /home/webportal/www/sudo-support-it/, stack Node.js + Express + SQLite.",
-      "expected_output": "Sizing L — Opus pianifica, 3-4 agenti Sonnet in 2+ wave. DEVE produrre tutti i 6 riquadri, con riquadri B multipli per lancio parallelo e riquadri C multipli per risultati. Riquadro E deve mostrare escalation decision.",
+      "expected_output": "Sizing L — multi-wave, 3+ agenti, contratti completi, progressione strati.",
+      "sizing": "L",
       "files": [],
       "assertions": [
         {
-          "id": "parallel-launch-panels",
-          "description": "Riquadri B multipli per lancio parallelo di agenti nello stesso strato",
-          "type": "output_contains",
-          "check": "L'output deve contenere la riga 'Lancio parallelo:' seguita da almeno 2 riquadri ┌─ AGENTE nello stesso strato"
-        },
-        {
-          "id": "multiple-result-panels",
-          "description": "Riquadri C multipli per risultati di agenti diversi",
-          "type": "output_contains",
-          "check": "L'output deve contenere almeno 2 riquadri ╭─ AGENTE COMPLETATO distinti con nomi agente diversi"
-        },
-        {
-          "id": "layer-progression-visible",
-          "description": "La progressione tra strati è visibile con riquadri A sequenziali",
-          "type": "output_contains",
-          "check": "L'output deve mostrare almeno 3 riquadri A (intestazione) per strati diversi in ordine (FONDAMENTA → STRUTTURA → MURA)"
-        },
-        {
-          "id": "verification-between-layers",
-          "description": "Riquadro D (verifica) appare tra ogni coppia di strati",
-          "type": "output_contains",
-          "check": "Tra ogni Riquadro A di uno strato e il Riquadro A dello strato successivo, deve esserci un Riquadro D di verifica"
-        },
-        {
-          "id": "file-count-in-delivery",
-          "description": "Il Riquadro F finale contiene conteggio preciso di file e righe",
-          "type": "output_contains",
-          "check": "Il riquadro consegna deve contenere 'File modificati' con un numero e una lista di file con +N righe per ciascuno"
-        },
-        {
-          "id": "task-tracking-complete",
-          "description": "Tutti i task vengono marcati completed alla fine",
+          "id": "sizing-l-squad",
+          "description": "Sizing L: multi-wave con 3+ agenti",
           "type": "behavior",
-          "check": "Alla fine dell'esecuzione, tutti i TaskCreate devono essere stati aggiornati a completed"
+          "check": "Il modello prevede almeno 3 agenti in almeno 2 wave."
+        },
+        {
+          "id": "contracts-verbatim",
+          "description": "Contratti SQL + endpoint completi e non abbreviati",
+          "type": "output_contains",
+          "check": "Nomi tabelle con colonne esatte, endpoint con HTTP method e shape."
+        },
+        {
+          "id": "summary-compact",
+          "description": "Riepiloghi intermedi con [N/M]",
+          "type": "output_contains",
+          "check": "Formato '[N/M] X file, ~Y righe. Next: Z' tra strati."
+        },
+        {
+          "id": "parallel-launch",
+          "description": "Lancio parallelo in formato compatto",
+          "type": "output_contains",
+          "check": "Formato '→ Parallelo (N):' con [A], [B] su righe separate."
+        },
+        {
+          "id": "layer-progression",
+          "description": "Progressione strati visibile",
+          "type": "output_contains",
+          "check": "Almeno 3 banner '━━━ STRATO N' in ordine."
+        },
+        {
+          "id": "delivery-with-budget",
+          "description": "Consegna con confronto budget",
+          "type": "output_contains",
+          "check": "CONSEGNA con budget previsto, consumato, e % risparmio/sforamento."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "checkpoint-persistence",
+      "prompt": "In spot-tracker aggiungi un sistema di notifiche: tabella DB per notifiche, endpoint CRUD, e badge con contatore nel frontend. Progetto in /home/webportal/www/spot-tracker/, stack Node.js + Express + SQLite. IMPORTANTE: dopo aver completato il primo strato (fondamenta/DB), fermati e mostrami il checkpoint salvato.",
+      "expected_output": "Checkpoint JSON salvato in /home/webportal/.hammerin-state/ con tutti i campi richiesti.",
+      "sizing": "M",
+      "files": [],
+      "assertions": [
+        {
+          "id": "checkpoint-correct-path",
+          "description": "Checkpoint in /home/webportal/.hammerin-state/spot-tracker.json",
+          "type": "behavior",
+          "check": "File salvato nel path corretto, non nella root del progetto."
+        },
+        {
+          "id": "checkpoint-layer-status",
+          "description": "Almeno 1 strato completato con files_modified",
+          "type": "output_contains",
+          "check": "Layer con status completato, files_modified, contracts_summary."
+        },
+        {
+          "id": "checkpoint-budget",
+          "description": "Budget del preventivo scelto nel checkpoint",
+          "type": "output_contains",
+          "check": "Oggetto budget con preventivo_scelto, fasi con token max."
+        },
+        {
+          "id": "checkpoint-next-action",
+          "description": "next_action specifico (non generico)",
+          "type": "output_contains",
+          "check": "next_action con nomi endpoint o file specifici."
         }
       ]
     }

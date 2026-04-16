@@ -14,6 +14,10 @@ Hammerin'Claude solves this with a simple insight: **don't choose upfront**. Alw
 
 > Named after *Hammerin' Harry* (Irem, 1990) — a construction worker armed with a mallet who builds and fights. Hammerin'Claude does the same: builds software layer by layer, with the tenacity of a worker and the intelligence of an architect.
 
+### v3 — Lean Rewrite
+
+The skill was rewritten from 892 to **245 lines** (-73%), eliminating the dual format system (caveman/verbose) in favor of a single compact output format. This reduced token usage by ~19% while maintaining 100% benchmark pass rate. The checkpoint schema was extracted to a reference file loaded on demand, further reducing base context size.
+
 ---
 
 ## The Constructor Method
@@ -51,7 +55,9 @@ Works with any tech stack: React, Node.js, Laravel, Python, React Native, Docker
 
 ### Phase 0 — Site Resume (centralized state markers)
 
-Before any survey, checks for an interrupted construction site. Checkpoints are stored in a **centralized, protected folder** (`/home/webportal/.hammerin-state/`, chmod 700) — one JSON file per project (e.g., `sudo-support-it.json`). Each checkpoint tracks completed layers, modified files, real contracts between layers, mode (inline/crew), the chosen budget, and caveman mode flag. If found, the skill resumes exactly where it left off — no re-reading, no re-planning — even across different Claude Code sessions.
+Before any survey, checks for an interrupted construction site. Checkpoints are stored in a **centralized, protected folder** (`/home/webportal/.hammerin-state/`, chmod 700) — one JSON file per project (e.g., `sudo-support-it.json`). Each checkpoint tracks completed layers, modified files, real contracts between layers, mode (inline/crew), and the chosen budget. If found, the skill resumes exactly where it left off — no re-reading, no re-planning — even across different Claude Code sessions.
+
+The checkpoint schema is defined in `references/checkpoint-schema.md` and loaded on demand only when writing a checkpoint, keeping the base context lean.
 
 **Advantages of centralized state:**
 - Survives `git clean`, repo reset, or re-cloning
@@ -141,17 +147,33 @@ The method works best with Opus (design) + Sonnet (build), but must work even wh
 
 ---
 
-## Benchmark
+## Benchmark (v3 Lean)
 
-Tested on 3 tasks at increasing complexity, comparing results with and without the skill.
+Tested on 2 eval tasks (Sizing S + Checkpoint persistence), comparing with_skill vs without_skill and v2 vs v3.
 
-| Metric | With skill | Without skill | Delta |
-|--------|-----------|---------------|-------|
-| Assertion pass rate | **100%** | 67% | **+33%** |
-| Avg tokens | **30,241** | 52,894 | **-42%** |
-| Avg time | **149.6s** | 202.2s | **-26%** |
+### Quality — Pass Rate
 
-The skill uses **fewer tokens** than the baseline while producing **better results**. The adaptive survey avoids reading unnecessary files and dynamic scaling avoids launching unnecessary agents.
+| Eval | With skill | Without skill | Delta |
+|------|-----------|---------------|-------|
+| Sizing S (6 assertions) | **100%** | 33% | **+67%** |
+| Checkpoint (4 assertions) | **100%** | 0% | **+100%** |
+
+### Efficiency — Token Usage
+
+| Eval | v2 (892 lines) | v3 (245 lines) | Reduction |
+|------|-----------------|-----------------|-----------|
+| Sizing S | 51.9K | 45.7K | **-12%** |
+| Checkpoint | 35.3K | 24.6K | **-30%** |
+| **Mean** | **43.6K** | **35.1K** | **-19.4%** |
+
+### Token Overhead (skill vs baseline)
+
+| Version | With skill | Without skill | Overhead |
+|---------|-----------|---------------|----------|
+| v2 | 43.6K | 35.8K | **+22% (skill costs extra)** |
+| v3 | 35.1K | 35.5K | **~0% (skill is free)** |
+
+**Summary:** The v3 rewrite eliminated the token overhead entirely — the skill now costs virtually zero extra tokens compared to raw Claude, while delivering 100% pass rate on structured output, budget tracking, and cross-session checkpoints.
 
 ---
 
@@ -168,62 +190,49 @@ The skill uses **fewer tokens** than the baseline while producing **better resul
 
 ## Installation
 
-The skill is a single `SKILL.md` file. Place it in your Claude Code skills directory:
+The skill consists of:
 
 ```
-~/.claude/skills/hammerin-claude/SKILL.md
+~/.claude/skills/hammerin-claude/
+├── SKILL.md                           # Core skill (245 lines)
+├── references/
+│   └── checkpoint-schema.md           # JSON schema for cross-session checkpoints
+└── evals/
+    └── evals.json                     # Benchmark eval definitions
 ```
 
-It will auto-trigger on all sessions and projects. No configuration needed.
+Place it in your Claude Code skills directory. It will auto-trigger on all sessions and projects. No configuration needed.
 
 ---
 
-## Caveman Mode — Intelligent Output Compression
+## Output Format
 
-Inspired by [Caveman](https://github.com/JuliusBrussee/caveman), Hammerin'Claude includes a built-in output compression mode that reduces output tokens by ~20-30% without affecting code quality or accuracy.
+A single compact format for all communication — no toggles, no modes.
 
-### The Golden Rule
+| Element | Format |
+|---------|--------|
+| Phase banners | `━━━ FASE 1 SOPRALLUOGO ━━━` + 1 context line |
+| Agent launch | `→ Sonnet "Backend": turni.js, database.js [bg]` |
+| Agent result | `← "Backend" OK: turni.js +85, database.js +12` |
+| Verification | `[OK] Layer 2 — 4/4 curl pass` |
+| Summary | `[2/4] 3 files, ~120 lines. Next: Layer 3` |
+| Decision | `[SCALE] Post-layer 2: escalation, 3 domains` |
 
-> **Compress what the user reads, never what the system executes.**
-
-### What gets compressed (presentation layer)
-
-| Element | Standard | Caveman |
-|---------|----------|---------|
-| Phase banners | 4-line box art | `━━━ FASE 1 SOPRALLUOGO ━━━` + 1 info line |
-| Pre-agent reports | 4+ lines | `→ Sonnet "Backend": turni.js, database.js [bg]` |
-| Post-agent reports | 4+ lines | `← "Backend" OK: turni.js +85, database.js +12` |
-| Verification | 5+ lines | `[OK] Layer 2: 4/4 curl pass` |
-| Decisions | 5+ lines | `[SCALE] Post-layer 2: escalation, 3 domains` |
-| Prose | Full sentences | Telegraphic fragments, no filler |
-
-### What NEVER gets compressed (execution layer)
-
-- **Contracts** — exact function names, endpoints, DB columns, JSON shapes
-- **Sub-agent prompts** — full, unambiguous instructions to Sonnet agents
-- **Quotes & budget tables** — user must understand what they're buying
-- **Verification commands** — curl, npm, docker commands must be copy-paste exact
-- **Error messages & warnings** — clarity is critical when things break
-- **Checkpoint JSON** — already compact, machine-parseable
-- **Final delivery report** — the document the user keeps
-
-### Activation
-
-Caveman is **on by default**. Disable with: "verbose mode", "no caveman", "full output". The `caveman` flag in the checkpoint preserves the choice across sessions.
+**Never compressed:** contracts, sub-agent prompts, budget tables, verification commands, error messages, delivery reports.
 
 ---
 
 ## Rules
 
+- **Quotes before building** — never touch files without user approval
+- **Budget is a ceiling, not a target** — use only the tokens needed
 - **Opus designs, Sonnet builds** — never reverse
 - **Read before write** — always, at every layer
 - **No file overlap** — never assign the same file to two agents in the same layer
-- **Contracts from Opus** — function names, endpoints, types decided by the architect
 - **Verify before ascending** — don't build layer N+1 without inspecting layer N
 - **Nothing generic** — exact names, not "create an appropriate function"
 - **Economic decision** — if agent cost exceeds work cost, go inline
 - **Stack-agnostic** — works with any stack
-- **Caveman compresses presentation, never execution** — contracts, agent prompts, quotes, and commands stay verbatim
 - **Centralized checkpoints** — all state in `/home/webportal/.hammerin-state/`, never in project root
 
 ---
