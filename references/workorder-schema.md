@@ -16,6 +16,7 @@ Convenzione nome: stesso `{nome-progetto}` del checkpoint.
     "token_output_max": 60000,
     "costo_max_eur": 1.50
   },
+  "active_agent": "schema",
   "agenti_necessari": ["schema", "api", "frontend"],
   "agenti_esclusi_e_perche": {
     "auth": "ruoli già esistenti, nessun nuovo permesso",
@@ -88,6 +89,7 @@ Convenzione nome: stesso `{nome-progetto}` del checkpoint.
 
 ## Campi obbligatori
 
+- `active_agent` — nome del blocco attualmente in esecuzione; stringa vuota se nessuno
 - `agenti_necessari` — lista minima, default vuoto
 - `agenti_esclusi_e_perche` — **ogni esclusione con motivazione**, non omettibile
 - `blocchi.{nome}.files_allowlist` — lista esatta, niente glob `*` se non per denylist
@@ -95,6 +97,19 @@ Convenzione nome: stesso `{nome-progetto}` del checkpoint.
 - `blocchi.{nome}.contratto` — testo verbatim (nomi, endpoint, shape)
 - `blocchi.{nome}.accettazione` — comando eseguibile, esatto
 - `blocchi.{nome}.token_cap_output` — numero, somma ≤ budget
+
+## Campo active_agent (enforcement hook)
+
+Il campo `active_agent` viene letto dal PreToolUse hook
+(`/root/.claude/hooks/hammerin-allowlist-check.sh`) per bloccare fisicamente
+le scritture fuori dall'allowlist del blocco corrente.
+
+**Protocollo:**
+- Prima di lanciare un sub-agente → set `active_agent: "{nome_blocco}"`
+- Al termine del sub-agente → set `active_agent: ""`
+- Se inline, segui comunque lo stesso protocollo: set prima di scrivere, reset dopo
+
+Se `active_agent` è vuoto o assente, il hook permette tutto (warning in log).
 
 ## Regola minima necessità
 

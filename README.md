@@ -171,18 +171,52 @@ NON adatta per:
 
 ```
 ~/.claude/skills/hammerin-claude/
-├── SKILL.md                           # Skill core (265 righe)
+├── SKILL.md                           # Skill core
 ├── README.md                          # Questo file
+├── hooks/
+│   └── hammerin-allowlist-check.sh    # Hook enforcement livello 1 (opzionale)
 ├── references/
 │   ├── checkpoint-schema.md           # JSON checkpoint cross-sessione
 │   ├── workorder-schema.md            # JSON ordine di lavoro
 │   ├── preventivi-format.md           # Formato tabella preventivi
-│   └── verifiche-per-stack.md         # Comandi verifica per stack
+│   ├── verifiche-per-stack.md         # Comandi verifica per stack
+│   └── enforcement-hook.md            # Documentazione hook livello 1
 └── evals/
     └── evals.json                     # Eval v3 (da aggiornare per v4)
 ```
 
-Auto-trigger su tutte le sessioni. Nessuna configurazione richiesta.
+Auto-trigger su tutte le sessioni. Nessuna configurazione richiesta per la
+skill base. L'enforcement hook è opzionale — vedi sotto.
+
+### Enforcement livello 1 (opzionale)
+
+Hook `PreToolUse` che **blocca fisicamente** scritture fuori dall'allowlist
+dell'agente attivo nel workorder. Trasforma una regola della skill
+(istruzione) in un vincolo runtime (comando rifiutato).
+
+```bash
+# 1. Copia lo script in ~/.claude/hooks/
+mkdir -p ~/.claude/hooks
+cp hooks/hammerin-allowlist-check.sh ~/.claude/hooks/
+chmod +x ~/.claude/hooks/hammerin-allowlist-check.sh
+
+# 2. Aggiungi il hook in ~/.claude/settings.json:
+#   "hooks": {
+#     "PreToolUse": [{
+#       "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+#       "hooks": [{"type": "command",
+#                  "command": "/root/.claude/hooks/hammerin-allowlist-check.sh"}]
+#     }]
+#   }
+
+# 3. Assicurati che /home/webportal/.hammerin-state/ esista con chmod 700
+mkdir -p /home/webportal/.hammerin-state && chmod 700 /home/webportal/.hammerin-state
+
+# 4. Toggle d'emergenza (disabilita tutto):
+export HAMMERIN_ENFORCE=0
+```
+
+Dettagli in `references/enforcement-hook.md`.
 
 ---
 

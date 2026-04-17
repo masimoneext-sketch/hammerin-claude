@@ -141,6 +141,22 @@ con allowlist completa. Serve comunque — è il contratto con te stesso.
 Lancia agente Plan con **Opus**. Opus legge i file, scrive il workorder,
 poi lo presenta all'utente per conferma veloce (solo se scala = squadra).
 
+### Campo active_agent (enforcement livello 1)
+
+Il workorder ha un campo `active_agent` (stringa, nome del blocco corrente).
+
+**Prima di lanciare un sub-agente**, aggiorna il workorder con il nome del
+blocco che sta per partire:
+
+```json
+{ "active_agent": "schema" }
+```
+
+**Al termine del sub-agente** (o dello strato, se inline), imposta a `""`.
+
+Il hook `PreToolUse` legge `active_agent` e blocca fisicamente ogni scrittura
+fuori dalla `files_allowlist` di quel blocco. Vedi `references/enforcement-hook.md`.
+
 ---
 
 ## Fase 3 — Costruzione + Gate d'Ispezione
