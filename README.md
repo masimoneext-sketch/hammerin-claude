@@ -1,247 +1,206 @@
 # Hammerin'Claude
 
-**Intelligent multi-agent orchestrator for Claude Code — Constructor Method.**
+**Orchestratore multi-agente per sviluppo software — metodo Capocantiere.**
 
-Build software like you build a building: from the ground up, layer by layer, verifying each floor before building the next one.
-
----
-
-## The Idea
-
-When an AI agent needs to develop a complex feature — database, API, auth, frontend — it faces a critical choice: do everything inline or launch sub-agents in parallel. Both choices have a cost. Going inline on a 600-line task produces messy code. Launching 4 agents on a 20-line task wastes tokens and coordination time.
-
-Hammerin'Claude solves this with a simple insight: **don't choose upfront**. Always start at the lightest level and scale only if the work demands it. Exactly like a construction site that starts with a small crew and calls for reinforcements only when the ground turns out to be harder than expected.
-
-> Named after *Hammerin' Harry* (Irem, 1990) — a construction worker armed with a mallet who builds and fights. Hammerin'Claude does the same: builds software layer by layer, with the tenacity of a worker and the intelligence of an architect.
-
-### v3 — Lean Rewrite
-
-The skill was rewritten from 892 to **245 lines** (-73%), eliminating the dual format system (caveman/verbose) in favor of a single compact output format. This reduced token usage by ~19% while maintaining 100% benchmark pass rate. The checkpoint schema was extracted to a reference file loaded on demand, further reducing base context size.
+Opus progetta, comanda e ispeziona. Sonnet esegue blocchi chiusi con contratto firmato.
+Mai invertire. Ogni operaio viene chiamato solo quando serve, solo per ciò che serve.
 
 ---
 
-## The Constructor Method
+## L'idea
 
-| Layer | Construction | Software |
-|-------|-------------|----------|
-| 1 — Foundation | Excavation + concrete | DB schema, types, interfaces, contracts |
-| 2 — Structure | Load-bearing pillars | API routes, controllers, business logic |
-| 3 — Walls | Enclosures + partitions | Frontend HTML/JS, UI components |
-| 4 — Systems | Electrical + plumbing | Auth, logging, validation |
-| 5 — Finishing | Plaster + paint | Empty states, loading, UX polish |
+Quando un agente AI deve sviluppare una feature complessa — database, API, auth,
+frontend — di solito sceglie tra due strade: fare tutto inline o lanciare tanti
+sub-agenti in parallelo. Entrambe hanno un costo: l'inline produce codice confuso
+su task grandi, i sub-agenti sprecano token su task piccoli.
 
-**Core principle: Opus designs, Sonnet builds.** Never reversed.
+Hammerin'Claude risolve il problema con un'idea presa dal cantiere edile:
+**non decidi in anticipo quanti operai servono. Parti leggero, scala solo se la
+realtà te lo chiede.** E soprattutto: **il capocantiere (Opus) sa chi chiamare
+e chi non chiamare.** Se il piano richiede l'idraulico ma non il pittore,
+il pittore non entra in cantiere.
 
-- **Opus** (claude-opus-4-6) acts as the architect — reads the codebase, decides strategy, defines contracts between layers with exact function names, endpoints, and DB columns.
-- **Sonnet** (claude-sonnet-4-6) acts as the specialized worker — receives precise instructions and implements without deviation.
-
----
-
-## Architecture
-
-### Auto-trigger
-
-The skill activates automatically across all sessions and projects when the user asks to develop a new feature, add a section, refactor, or any development task requiring planning. No manual invocation needed.
-
-**Does NOT trigger for:** single-file bug fixes, questions, code explanations, pure CSS/UI changes, or deployments.
-
-### Stack-agnostic
-
-Works with any tech stack: React, Node.js, Laravel, Python, React Native, Docker. The layers and verifications are universal — only the specific content of each layer changes.
+> Nome ispirato a *Hammerin' Harry* (Irem, 1990) — un operaio armato di mazza che
+> costruisce e combatte. Hammerin'Claude fa lo stesso: costruisce software a strati,
+> con la tenacia dell'operaio e l'intelligenza dell'architetto.
 
 ---
 
-## The 5 Phases
+## Cosa è cambiato nella v4
 
-### Phase 0 — Site Resume (centralized state markers)
+La v4 introduce il **pattern Capocantiere**. Rispetto alla v3:
 
-Before any survey, checks for an interrupted construction site. Checkpoints are stored in a **centralized, protected folder** (`/home/webportal/.hammerin-state/`, chmod 700) — one JSON file per project (e.g., `sudo-support-it.json`). Each checkpoint tracks completed layers, modified files, real contracts between layers, mode (inline/crew), and the chosen budget. If found, the skill resumes exactly where it left off — no re-reading, no re-planning — even across different Claude Code sessions.
+| Concetto v3 | Concetto v4 (Capocantiere) |
+|-------------|-----------------------------|
+| Piano Opus passato via prompt | **Workorder** scritto su file JSON |
+| Sonnet riceve istruzioni nel prompt | Sonnet legge il proprio blocco dal file |
+| Verifica solo in Fase 4 | **Gate d'ispezione** tra ogni strato |
+| Agenti decisi a spanne | **Regola minima necessità**: default NO, ogni esclusione giustificata |
+| Nessun confronto preventivo/consumo | Sforamento preventivo chiede OK utente |
 
-The checkpoint schema is defined in `references/checkpoint-schema.md` and loaded on demand only when writing a checkpoint, keeping the base context lean.
-
-**Advantages of centralized state:**
-- Survives `git clean`, repo reset, or re-cloning
-- Doesn't pollute project root or `.gitignore`
-- Single location to find all active construction sites
-- Protected from unauthorized access (chmod 700)
-
-### Phase 1 — Site Survey
-
-Reads the minimum needed to understand the task weight:
-
-1. **Project memory** — known context and conventions
-2. **Entrypoint** — overall codebase structure
-3. **1 pattern file** — the file most similar to what needs to be created
-4. **(adaptive) 1-2 extra files** — only if the first pattern isn't enough
-
-After the first pattern, a **confidence check** evaluates whether the pattern covers the task domain, conventions are clear, and volume estimation is reliable. If not, reads up to 2 additional files (max 3 total). If the codebase remains opaque after 3 files, flags it and starts with "inline + escalation" to reduce estimation risk.
-
-**Budget Guardrails — Quotes.** At the end of the survey, the skill presents the user with **2–4 quotes** (Economic / Balanced / Complete), each with token ceilings, estimated euro cost, per-phase breakdown, and explicit trade-offs on quality, finishing, and verification depth. The skill does not touch any file until the user picks a quote. The chosen budget becomes the guardrail for the entire execution; at the checkpoint after layer 2, if a phase is at risk of exceeding its ceiling, the skill raises a **Budget alert** and asks before continuing.
-
-### Phase 2 — Design & Foundation
-
-Foundations are what everything rests on: DB schema, types, interfaces, contracts. If working inline, reads the files to modify and proceeds. If calling the crew, an Opus (Plan) agent designs all layers with exact contracts.
-
-### Phase 3 — Construction
-
-Proceeds layer by layer, bottom to top. Within a layer, independent agents work in parallel. Between layers, verification before ascending.
-
-**Checkpoint after layer 2:** if remaining volume has grown, scale to the crew. If it has shrunk, cancel the crew and finish inline.
-
-> **Note:** Benchmarks verify that plans correctly describe layer-by-layer construction with checkpoints. Actual multi-agent execution (launching real Sonnet sub-agents) has not been benchmarked yet.
-
-### Phase 4 — Inspection
-
-The skill instructs verification appropriate to the stack:
-- **Structural** — server started, endpoints respond, build compiles
-- **Systems** — auth, logging, validation
-- **UI** — features visible, empty states, permissions
-- **Regression** — existing features not broken
-
-> **Note:** Verification commands (curl, npm run build) appear in plan outputs. Actual execution of these commands in a live benchmark has not been tested.
-
-### Phase 5 — Delivery
-
-Report to the user: completed layers, agents used, decisions made during construction, and precise instructions to verify in person.
+SKILL.md è passato da 245 a **265 righe** (sotto il tetto di 300). La logica
+nuova è compensata dall'estrazione di 3 reference files caricati on-demand.
 
 ---
 
-## Dynamic Scaling
+## Metodo Capocantiere — gli strati
 
-Instead of deciding upfront how many agents to use, the skill instructs the model to start at the lightest level and scale only if necessary.
+| Strato | Cantiere edile | Software |
+|--------|----------------|----------|
+| 1 Fondamenta | Scavo + cemento | Schema DB, tipi, interfacce, contratti |
+| 2 Struttura | Pilastri portanti | API routes, controller, business logic |
+| 3 Mura | Tamponamenti + divisori | Frontend, componenti UI |
+| 4 Impianti | Elettrico + idraulico | Auth, logging, validazione |
+| 5 Finiture | Intonaco + pittura | Empty states, loading, polish UX |
 
-| Mode | When | Example |
-|------|------|---------|
-| **Inline safe** | Pattern replication, few dozen lines | Add 1 field to DB + API + frontend |
-| **Inline + escalation** | Uncertain volume, might grow | New section with partially new logic |
-| **Direct crew** | Full feature, 3+ domains, new logic | Complete CRUD + auth + import/export |
-
-**Verified:** Sizing S tasks correctly produce inline plans. Sizing M/L tasks correctly produce multi-agent plans with crew allocation. **Not yet verified:** actual mid-execution transitions (e.g., starting inline then scaling to crew after layer 2).
-
----
-
-## Construction Site Visibility
-
-The skill instructs the main thread to narrate the construction site so the user can follow progress.
-
-**Verified in benchmarks (plan-only evals):**
-- **Phase banners** — `━━━ FASE N NOME ━━━` consistently produced in all outputs
-- **Budget quotes** — 2-3 option table with token/€ estimates before any work
-- **Delivery report** — structured CONSEGNA block with files, lines, budget comparison
-- **Verification markers** — `[OK] Strato N — detail` between layers
-
-**Instructed but not yet verified in live execution:**
-- **Task tracking** — the skill instructs `TaskCreate` per phase, but benchmarks were plan-only (no real tool calls). Likely works in real execution but unconfirmed.
-- **Pre/post agent reports** — `→`/`←` format defined, but no benchmark has launched real sub-agents yet.
-- **Inline progress updates** — instructed for layers taking >2 minutes, untested.
-- **Scaling decisions** — `[SCALE]` format defined, no benchmark has triggered a real scale transition.
-
-> Benchmarks to date test plan quality, not live execution. A live benchmark on a real M/L task would verify these features.
+**Principio:** Opus progetta e ispeziona, Sonnet costruisce. Mai invertire.
 
 ---
 
-## Graceful Degradation
+## Le 5 fasi
 
-The skill instructs fallback behavior for degraded conditions. These fallbacks are defined in SKILL.md but **have not been tested in benchmarks** — no eval has simulated rate limits or model unavailability.
+### Fase 0 — Ripresa Cantiere
+Checkpoint in `/home/webportal/.hammerin-state/{progetto}.json`.
+Se esiste, riprendi dallo strato successivo. Schema in `references/checkpoint-schema.md`.
 
-| Scenario | Instructed fallback |
-|----------|---------------------|
-| **Opus unavailable** | Plan inline in the main thread (already running on Opus) |
-| **Sonnet rate-limited** | Reduce parallelism, wait 60s, retry |
-| **Both limited** | Full inline mode — same layers, same verifications, main thread executes |
+### Fase 1 — Sopralluogo + Preventivi
+Legge memoria progetto, entrypoint, 1 file pattern (max 3 file totali).
+Presenta **2-4 preventivi** come tabella comparativa con costo in €,
+agenti inclusi, **agenti esclusi con motivazione**.
+Formato in `references/preventivi-format.md`. Non procede senza OK utente.
 
-**Principle:** the Constructor Method is the layered structure with verification, not the presence of sub-agents. Sub-agents are a speed optimization, not a requirement.
+### Fase 2 — Ordine di Lavoro (Workorder)
+Opus scrive il workorder in `{progetto}-workorder.json` con:
+- `agenti_necessari` (lista minima)
+- `agenti_esclusi_e_perche` (ogni esclusione giustificata)
+- per ogni agente: `files_allowlist`, `files_denylist`, `contratto`,
+  `accettazione` (comando eseguibile), `token_cap_output`
 
----
+Schema completo in `references/workorder-schema.md`.
 
-## Benchmark (v3 Lean)
+### Fase 3 — Costruzione + Gate d'Ispezione
+Strati sequenziali. Dentro uno strato: agenti paralleli (`run_in_background: true`).
+Tra strati: **gate obbligatorio** con 3 check sul diff:
+1. File toccati ⊆ allowlist?
+2. Contratto rispettato (grep dei nomi esatti)?
+3. Righe ≤ cap?
 
-Tested on 2 eval tasks (Sizing S + Checkpoint persistence), comparing with_skill vs without_skill and v2 vs v3.
+Se un gate fallisce, nessuno strato successivo parte. Opus può riadattare il
+workorder (split, aggiunta agente escluso, escalation) — sempre su evidenza,
+mai "per sicurezza". Sforo del preventivo chiede OK utente.
 
-### Quality — Pass Rate
+### Fase 4 — Collaudo
+Verifica appropriata allo stack (build, curl, auth, regression).
+Comandi precisi per Node/React/Laravel/Docker/Python/Expo in `references/verifiche-per-stack.md`.
 
-| Eval | With skill | Without skill | Delta |
-|------|-----------|---------------|-------|
-| Sizing S (6 assertions) | **100%** | 33% | **+67%** |
-| Checkpoint (4 assertions) | **100%** | 0% | **+100%** |
-
-### Efficiency — Token Usage
-
-| Eval | v2 (892 lines) | v3 (245 lines) | Reduction |
-|------|-----------------|-----------------|-----------|
-| Sizing S | 51.9K | 45.7K | **-12%** |
-| Checkpoint | 35.3K | 24.6K | **-30%** |
-| **Mean** | **43.6K** | **35.1K** | **-19.4%** |
-
-### Token Overhead (skill vs baseline)
-
-| Version | With skill | Without skill | Overhead |
-|---------|-----------|---------------|----------|
-| v2 | 43.6K | 35.8K | **+22% (skill costs extra)** |
-| v3 | 35.1K | 35.5K | **~0% (skill is free)** |
-
-**Summary:** The v3 rewrite eliminated the token overhead entirely — the skill now costs virtually zero extra tokens compared to raw Claude, while delivering 100% pass rate on structured output, budget tracking, and cross-session checkpoints.
+### Fase 5 — Consegna
+Elimina checkpoint + workorder. Report con preventivato vs consumato, scostamento,
+file toccati, strati completati, gate falliti/risolti.
 
 ---
 
-## Use Cases
+## Cosa è verificato vs cosa è istruito
 
-- Full-stack features (DB + API + auth + frontend + UX in one coordinated flow)
-- Large-scale refactoring across DB, API, and frontend
-- Adding sections to existing portals (reads patterns, replicates, verifies)
-- Stack migrations (rebuild layer by layer with verification)
-- Ambiguous tasks (dynamic scaling discovers complexity during construction)
-- Enterprise portals, SaaS platforms, mobile apps with dedicated backends
+**Principio di onestà:** la skill è un set di istruzioni che Claude legge e
+prova a seguire. Non c'è un runtime esterno che forza il rispetto delle regole.
+Qui sotto cosa significa in pratica:
+
+### ✅ Reale — la skill può fare questo
+
+- Lettura/scrittura file JSON (checkpoint, workorder)
+- Lancio sub-agenti Opus/Sonnet tramite il tool Agent
+- Esecuzione di `git diff`, `grep`, `wc -l` per il gate d'ispezione
+- Presentazione tabella preventivi con attesa OK utente
+- Esecuzione curl/npm run build/docker restart in Fase 4
+- Task tracking con TaskCreate/TaskUpdate
+- Ripresa cross-sessione via checkpoint su disco
+
+### ⚠️ Istruito ma non enforced — dipende dalla disciplina di Claude
+
+- **Token cap per agente** è un'istruzione nel workorder, non un kill switch
+- **Gate blocca strato N+1** è una regola procedurale, non un controllo runtime
+- **Allowlist/denylist file** è un vincolo testuale, non un filesystem permission
+- **Regola minima necessità** è una policy, Claude deve scegliere di rispettarla
+- **Riadattamento dinamico** è descritto come flusso, non come macchina a stati
+
+### ❌ Non promesso
+
+- Garanzia matematica di zero errori
+- Rollback automatico (Claude deve farlo a mano con git)
+- Validatore esterno che rifiuta output di un agente non-conforme
+- Kill switch automatico al superamento del budget
+
+Per avere *enforcement* vero servono strumenti fuori dalla skill: hooks Claude Code,
+validator esterni, CI gates. Non sono in questa repo.
 
 ---
 
-## Installation
+## Benchmark
 
-The skill consists of:
+La v3 aveva benchmark plan-only su 2 eval tasks con 100% pass rate e -19% token
+overhead rispetto alla baseline. La v4 introduce il workorder e il gate
+d'ispezione — **i benchmark sulla v4 non sono ancora stati eseguiti**.
+Prima di dichiarare metriche, vanno scritti eval che testino:
+1. Creazione workorder con agenti_esclusi_e_perche popolato
+2. Gate d'ispezione che blocca quando l'allowlist è violata
+3. Riadattamento dinamico con tracciatura del trigger
+
+Finché non girano, assumere parità con v3 come floor minimo.
+
+---
+
+## Use case previsti
+
+La skill è progettata per:
+- **Portali web** (React + backend PHP/Node) — sezioni nuove, CRUD, auth
+- **Web app** con database + API + frontend coordinati
+- **App mobile** con backend dedicato (Expo + Node/Python)
+- **Refactor multi-file** dove i contratti tra moduli contano
+- **Audit di sicurezza guidato** (con check OWASP in Fase 4)
+- **Migrazioni di stack** strato per strato
+
+NON adatta per:
+- Fix singoli bug in 1 file
+- Modifiche CSS/UI pure (esiste `frontend-design`)
+- Deploy (esiste `deploy`)
+- Domande o spiegazioni di codice
+
+---
+
+## Installazione
 
 ```
 ~/.claude/skills/hammerin-claude/
-├── SKILL.md                           # Core skill (245 lines)
+├── SKILL.md                           # Skill core (265 righe)
+├── README.md                          # Questo file
 ├── references/
-│   └── checkpoint-schema.md           # JSON schema for cross-session checkpoints
+│   ├── checkpoint-schema.md           # JSON checkpoint cross-sessione
+│   ├── workorder-schema.md            # JSON ordine di lavoro
+│   ├── preventivi-format.md           # Formato tabella preventivi
+│   └── verifiche-per-stack.md         # Comandi verifica per stack
 └── evals/
-    └── evals.json                     # Benchmark eval definitions
+    └── evals.json                     # Eval v3 (da aggiornare per v4)
 ```
 
-Place it in your Claude Code skills directory. It will auto-trigger on all sessions and projects. No configuration needed.
+Auto-trigger su tutte le sessioni. Nessuna configurazione richiesta.
 
 ---
 
-## Output Format
+## Regole (le 12 del capocantiere)
 
-A single compact format for all communication — no toggles, no modes.
-
-| Element | Format |
-|---------|--------|
-| Phase banners | `━━━ FASE 1 SOPRALLUOGO ━━━` + 1 context line |
-| Agent launch | `→ Sonnet "Backend": turni.js, database.js [bg]` |
-| Agent result | `← "Backend" OK: turni.js +85, database.js +12` |
-| Verification | `[OK] Layer 2 — 4/4 curl pass` |
-| Summary | `[2/4] 3 files, ~120 lines. Next: Layer 3` |
-| Decision | `[SCALE] Post-layer 2: escalation, 3 domains` |
-
-**Never compressed:** contracts, sub-agent prompts, budget tables, verification commands, error messages, delivery reports.
-
----
-
-## Rules
-
-- **Quotes before building** — never touch files without user approval
-- **Budget is a ceiling, not a target** — use only the tokens needed
-- **Opus designs, Sonnet builds** — never reverse
-- **Read before write** — always, at every layer
-- **No file overlap** — never assign the same file to two agents in the same layer
-- **Verify before ascending** — don't build layer N+1 without inspecting layer N
-- **Nothing generic** — exact names, not "create an appropriate function"
-- **Economic decision** — if agent cost exceeds work cost, go inline
-- **Stack-agnostic** — works with any stack
-- **Centralized checkpoints** — all state in `/home/webportal/.hammerin-state/`, never in project root
+1. Preventivi prima di costruire — mai toccare file senza OK utente
+2. Budget è un tetto, non un obiettivo
+3. Opus progetta/ispeziona, Sonnet esegue — mai invertire
+4. Workorder firmato — ogni agente riceve il blocco dal file
+5. Minima necessità — default NO, ogni esclusione giustificata
+6. Gate obbligatorio — strato N+1 non parte se N non passa i 3 check
+7. Riadattamento solo su evidenza — nessuna aggiunta per sicurezza
+8. Sforo chiede OK — il preventivo scelto è un tetto
+9. Leggere prima di scrivere — sempre, a ogni strato
+10. File non sovrapposti — mai stesso file a due agenti nello stesso strato
+11. Contratti verbatim — nomi esatti, mai "crea una funzione appropriata"
+12. Checkpoint dopo ogni strato verificato
 
 ---
 
-*Created by Marco Simone — April 2026*
+*Marco Simone — Aprile 2026. v4 Capocantiere.*
