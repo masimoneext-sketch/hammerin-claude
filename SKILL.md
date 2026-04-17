@@ -172,16 +172,24 @@ Tra strati: **gate d'ispezione** obbligatorio.
 
 ### Il Gate d'Ispezione (cuore del metodo)
 
-Dopo ogni strato, Opus (stessa istanza, read-only) esegue **3 check sul diff**:
+Dopo ogni strato, invoca il **validator esterno** che esegue 3 check deterministici:
+
+```bash
+python3 /root/.claude/skills/hammerin-claude/hooks/hammerin_gate.py \
+    --cwd "$PROJECT_PATH"
+```
 
 | Check | Come | Azione se fallisce |
 |-------|------|---------------------|
 | File toccati ⊆ allowlist | `git diff --name-only` vs workorder | Rollback + riassegna blocco |
-| Contratto rispettato | grep dei nomi esatti (funzioni, endpoint, colonne) | Agente correttivo mirato (token cap 500) |
-| Righe ≤ cap | wc -l del diff vs `token_cap_output` | Warning, non blocca |
+| Contratto rispettato | grep degli identificatori estratti dal contratto | Agente correttivo mirato (token cap 500) |
+| Righe ≤ cap | conteggio righe `+` vs `token_cap_output × 0.5` | Warning, non blocca |
 
-**Nessuno strato N+1 parte se il gate su N non passa.** Questo è il punto
-che porta l'errore vicino a zero — oggi manca.
+Exit 0 pass, exit 1 fail bloccante, exit 2 errore config. Spec completa →
+`references/validator-gate.md`.
+
+**Nessuno strato N+1 parte se il gate su N non passa.** Il validator è il
+check indipendente — non dipende dalla disciplina di Opus nel leggere il diff.
 
 ### Riadattamento dinamico
 
